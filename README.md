@@ -1,6 +1,6 @@
 # Global Reentrancy Lock
 
-The Global Reentrancy Lock provides a base class for implementing a reentrancy lock mechanism with multiple lock levels. The project is inspired by the OpenZeppelin reentrancy guard smart contracts, and it is designed to work with Solidity 0.8.13. This readme will guide you through the project structure and help you understand how to use the base class in your own contracts.
+The Global Reentrancy Lock provides a base class for implementing a reentrancy lock mechanism with multiple lock levels. The project is inspired by the OpenZeppelin reentrancy guard smart contracts. This readme will guide you through the project structure and help you understand how to use the base class in your own contracts.
 
 ## Table of Contents
 - [Project Structure](#project-structure)
@@ -34,6 +34,8 @@ The primary internal functions of the contract are:
 - `_unlock(uint8 toUnlock)`: Unlocks the system to a specific level.
 
 These functions should be called by child contracts that inherit the `BaseGlobalReentrancyLock`.
+
+BaseGlobalReentrancy lock contains many assert statements. All of these statements can be safely removed for production builds as their purpose is solely to assist symbolic tools in proving correctness of the program.
 
 ## GlobalReentrancyLock Example
 
