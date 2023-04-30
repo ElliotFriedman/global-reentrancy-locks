@@ -51,6 +51,7 @@ To use the `BaseGlobalReentrancyLock` in your own contracts, follow these steps:
 2. Inherit from the `BaseGlobalReentrancyLock` contract and set the `maxLockLevel` in the constructor.
 3. Implement the necessary access control mechanisms in your contract.
 4. Use the `_lock` and `_unlock` functions to control the lock state of your contract.
+5. Implement a modifier that handles making a call to the global reentrancy lock. Example code snippet with this modifier can be found in `ExampleSystem.sol`.
 
 ## Testing
 
