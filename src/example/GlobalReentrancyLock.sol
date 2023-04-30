@@ -24,6 +24,11 @@ import {Constants} from "../Constants.sol";
 /// https://docs.soliditylang.org/en/develop/types.html#address
 
 contract GlobalReentrancyLock is BaseGlobalReentrancyLock {
+    constructor() BaseGlobalReentrancyLock(2) { /// allow locking up to 2 levels
+        require(block.chainid != 1); /// don't deploy this contract on mainnet, it is only an example
+        /// echidna won't work with this check around chainid, so comment out for echidna testing
+        /// contract adding access control is mandatory for the base contract to work in production
+    }
     /// ---------- View Only APIs ----------
 
     /// @notice returns true if the contract is not currently entered
@@ -44,6 +49,7 @@ contract GlobalReentrancyLock is BaseGlobalReentrancyLock {
     /// @dev only valid state transitions:
     /// - lock to level 1 from level 0
     /// - lock to level 2 from level 1
+    /// @notice do not use in production without access controls. This is an example only
     function lock(
         uint8 toLock
     ) public {
@@ -61,6 +67,7 @@ contract GlobalReentrancyLock is BaseGlobalReentrancyLock {
     /// @dev only valid state transitions:
     /// - unlock to level 0 from level 1 as original locker in same block as lock
     /// - lock from level 2 down to level 1 in same block as lock
+    /// @notice do not use in production without access controls. This is an example only
     function unlock(
         uint8 toUnlock
     ) external {
