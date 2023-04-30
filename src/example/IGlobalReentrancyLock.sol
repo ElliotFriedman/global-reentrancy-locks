@@ -1,8 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
-
-import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
-import {PermissionsV2} from "@voltprotocol/core/PermissionsV2.sol";
 
 /// @notice inpsired by the openzeppelin reentrancy guard smart contracts
 /// data container size has been changed
