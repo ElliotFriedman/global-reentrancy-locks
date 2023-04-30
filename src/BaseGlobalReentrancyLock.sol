@@ -38,16 +38,12 @@ contract BaseGlobalReentrancyLock {
     /// @notice system lock level
     uint8 public lockLevel;
 
-    /// commented out to constrain search space and speed smt solving
     /// @notice maximum lock level of system
-    // uint256 public immutable maxLockLevel;
-    
-    uint256 public constant maxLockLevel = 10;
+    uint8 public immutable maxLockLevel;
 
-    /// commented out to speed smt solving
-    // constructor (uint256 _maxLockLevel) {
-    //     maxLockLevel = _maxLockLevel;
-    // }
+    constructor (uint8 _maxLockLevel) {
+        maxLockLevel = _maxLockLevel;
+    }
 
     /// @notice set the status to entered
     /// only available if not entered at level 1 and level 2
