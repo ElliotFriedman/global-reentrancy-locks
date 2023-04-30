@@ -38,11 +38,11 @@ contract BaseGlobalReentrancyLock {
     /// @notice system lock level
     uint8 public lockLevel;
 
-    /// commented out to speed smt solving
+    /// commented out to constrain search space and speed smt solving
     /// @notice maximum lock level of system
     // uint256 public immutable maxLockLevel;
     
-    uint256 public constant maxLockLevel = 2;
+    uint256 public constant maxLockLevel = 10;
 
     /// commented out to speed smt solving
     // constructor (uint256 _maxLockLevel) {
@@ -52,7 +52,7 @@ contract BaseGlobalReentrancyLock {
     /// @notice set the status to entered
     /// only available if not entered at level 1 and level 2
     /// Only callable by locker role
-    function _lock(uint8 toLock) external {
+    function _lock(uint8 toLock) internal {
         uint8 currentLevel = lockLevel; /// cache to save 1 warm SLOAD
 
         require(
@@ -92,6 +92,7 @@ contract BaseGlobalReentrancyLock {
         assert(toLock == currentLevel + 1);
         assert(block.number == lastBlockEntered);
         assert(lockLevel <= maxLockLevel);
+        assert(lockLevel == toLock);
     }
 
     /// @notice set the status to not entered
@@ -102,7 +103,7 @@ contract BaseGlobalReentrancyLock {
     /// Only callable by locker level 1 role
     /// @dev toUnlock can only be _ENTERED_LEVEL_ONE or _NOT_ENTERED
     /// currentLevel cannot be _NOT_ENTERED when this function is called
-    function _unlock(uint8 toUnlock) external {
+    function _unlock(uint8 toUnlock) internal {
         uint8 currentLevel = lockLevel; /// save 1 warm SLOAD
 
         require(
@@ -129,11 +130,11 @@ contract BaseGlobalReentrancyLock {
                 msg.sender == lastSender,
                 "GlobalReentrancyLock: caller is not locker"
             );
+            assert(msg.sender == lastSender);
         }
 
         lockLevel = toUnlock;
 
         assert(toUnlock == currentLevel - 1); /// invariant for SMT solver
-        assert(1 == 2); 
     }
 }
