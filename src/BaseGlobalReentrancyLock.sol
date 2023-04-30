@@ -3,6 +3,9 @@ pragma solidity 0.8.13;
 
 import {Constants} from "./Constants.sol";
 
+/// @notice Global reentrancy lock. Assert statements are for SMT solving
+/// assertions only and can be removed for production builds.
+
 contract BaseGlobalReentrancyLock {
     /// ------------- System Invariants ---------------
 
@@ -43,6 +46,19 @@ contract BaseGlobalReentrancyLock {
 
     constructor (uint8 _maxLockLevel) {
         maxLockLevel = _maxLockLevel;
+    }
+
+    /// ---------- View Only APIs ----------
+
+    /// @notice returns true if the contract is not currently entered
+    /// at level 1 and 2, returns false otherwise
+    function isUnlocked() external view returns (bool) {
+        return lockLevel == Constants._NOT_ENTERED;
+    }
+
+    /// @notice returns whether or not the contract is currently locked
+    function isLocked() external view returns (bool) {
+        return lockLevel != Constants._NOT_ENTERED;
     }
 
     /// @notice set the status to entered
@@ -126,7 +142,7 @@ contract BaseGlobalReentrancyLock {
                 msg.sender == lastSender,
                 "GlobalReentrancyLock: caller is not locker"
             );
-            assert(msg.sender == lastSender);
+            assert(msg.sender == lastSender); /// invariant for SMT solver, should always be true
         }
 
         lockLevel = toUnlock;
