@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.13;
 
-import {IGlobalReentrancyLock} from "./IGlobalReentrancyLock.sol";
+import {BaseGlobalReentrancyLock} from "./../BaseGlobalReentrancyLock.sol";
 import {Constants} from "../Constants.sol";
 
 /// @notice inpsired by the openzeppelin reentrancy guard smart contracts
@@ -23,61 +23,17 @@ import {Constants} from "../Constants.sol";
 /// @dev in the EVM. 160bits / 8 bits per byte = 20 bytes
 /// https://docs.soliditylang.org/en/develop/types.html#address
 
-contract GlobalReentrancyLock is IGlobalReentrancyLock {
-    /// ------------- System States ---------------
-
-    /// system unlocked
-    /// request level 2 locked
-    /// call reverts because system must be locked at level 1 before locking to level 2
-    ///
-    /// system unlocked
-    /// request level 1 locked
-    /// level 1 locked, msg.sender stored
-    /// level 1 unlocked, msg.sender checked to ensure same as locking
-    ///
-    /// lock level 1, msg.sender is stored
-    /// request level 2 locked
-    /// level 2 locked, msg.sender not stored
-    /// request level 2 unlocked,
-    /// level 2 unlocked, msg.sender not checked
-    /// level 1 unlocked, msg.sender checked
-    ///
-    /// level 1 locked
-    /// request level 2 locked
-    /// level 2 locked
-    /// request level 0 unlocked, invalid state, must unlock to level 1, call reverts
-    ///
-    /// request level 3 or greater locked from any system state, call reverts
-
-    /// -------------------------------------------------
-    /// -------------------------------------------------
-    /// --------- Single Storage Slot Per Lock ----------
-    /// -------------------------------------------------
-    /// -------------------------------------------------
-
-    /// @notice cache the address that locked the system
-    /// only this address can unlock it
-    address public lastSender;
-
-    /// @notice store the last block entered
-    /// if last block entered was in the past and status
-    /// is entered, the system is in an invalid state
-    /// which means that actions should be allowed
-    uint88 public lastBlockEntered;
-
-    /// @notice system lock level
-    uint8 public lockLevel;
-
+contract GlobalReentrancyLock is BaseGlobalReentrancyLock {
     /// ---------- View Only APIs ----------
 
     /// @notice returns true if the contract is not currently entered
     /// at level 1 and 2, returns false otherwise
-    function isUnlocked() external view override returns (bool) {
+    function isUnlocked() external view returns (bool) {
         return lockLevel == Constants._NOT_ENTERED;
     }
 
     /// @notice returns whether or not the contract is currently locked
-    function isLocked() external view override returns (bool) {
+    function isLocked() external view returns (bool) {
         return lockLevel != Constants._NOT_ENTERED;
     }
 
@@ -90,41 +46,8 @@ contract GlobalReentrancyLock is IGlobalReentrancyLock {
     /// - lock to level 2 from level 1
     function lock(
         uint8 toLock
-    ) external override {
-        uint8 currentLevel = lockLevel; /// cache to save 1 warm SLOAD
-
-        require(
-            toLock == currentLevel + 1,
-            "GlobalReentrancyLock: invalid lock level"
-        );
-        require(
-            toLock <= Constants._ENTERED_LEVEL_TWO,
-            "GlobalReentrancyLock: exceeds lock state"
-        );
-
-        /// only store the sender and lastBlockEntered if first caller (locking to level 1)
-        if (currentLevel == Constants._NOT_ENTERED) {
-            /// - lock to level 1 from level 0
-
-            uint88 blockEntered = uint88(block.number);
-
-            lastSender = msg.sender;
-            lastBlockEntered = blockEntered;
-        } else {
-            /// - lock to level 2 from level 1
-
-            /// ------ increasing lock level flow ------
-
-            /// do not update sender, to ensure original sender gets checked on final unlock
-            /// do not update lastBlockEntered because it should be the same, if it isn't, revert
-            /// if already entered, ensure entry happened this block
-            require(
-                block.number == lastBlockEntered,
-                "GlobalReentrancyLock: system not entered this block"
-            );
-        }
-
-        lockLevel = toLock;
+    ) public {
+        _lock(toLock);
     }
 
     /// @notice set the status to not entered
@@ -140,70 +63,7 @@ contract GlobalReentrancyLock is IGlobalReentrancyLock {
     /// - lock from level 2 down to level 1 in same block as lock
     function unlock(
         uint8 toUnlock
-    ) external override {
-        uint8 currentLevel = lockLevel;
-
-        require(
-            uint88(block.number) == lastBlockEntered,
-            "GlobalReentrancyLock: not entered this block"
-        );
-        require(
-            currentLevel != Constants._NOT_ENTERED,
-            "GlobalReentrancyLock: system not entered"
-        );
-
-        /// if started at level 1, locked up to level 2,
-        /// and trying to lock down to level 0,
-        /// fail as that puts us in an invalid state
-
-        require(
-            toUnlock == currentLevel - 1,
-            "GlobalReentrancyLock: unlock level must be 1 lower"
-        );
-
-        if (toUnlock == Constants._NOT_ENTERED) {
-            /// - unlock to level 0 from level 1, verify sender is original locker
-            require(
-                msg.sender == lastSender,
-                "GlobalReentrancyLock: caller is not locker"
-            );
-        }
-
-        lockLevel = toUnlock;
-    }
-
-    /// ---------- Governor Only State Changing API ----------
-
-    /// @notice function to recover the system from an incorrect state
-    /// in case of emergency by setting status to not entered
-    /// only callable if system is entered in a previous block
-    function governanceEmergencyRecover() external override /** TODO add modifier restricting access */ {
-        /// must be locked either at level one, or at level 2
-        require(
-            lockLevel != Constants._NOT_ENTERED,
-            "GlobalReentrancyLock: governor recovery, system not entered"
-        );
-        /// status level 1 or level 2 lock == entered at this point
-        /// stop malicious governor from unlocking in the same block as lock happened
-        /// if governor is compromised, we're likely in a state FUBAR
-        require(
-            block.number != lastBlockEntered,
-            "GlobalReentrancyLock: cannot unlock in same block as lock"
-        );
-
-        lockLevel = Constants._NOT_ENTERED;
-
-        emit EmergencyUnlock(msg.sender, block.timestamp);
-    }
-
-    /// @notice governor only function to pause the entire system
-    /// sets the lock to level two lock
-    /// in this state, pcv oracle updateBalance hooks
-    /// are allowed to be called, but since the PCV deposits cannot be called
-    /// this presents no issue.
-    function governanceEmergencyPause() external override /** TODO add modifier restricting access */  {
-        lockLevel = Constants._ENTERED_LEVEL_TWO;
-
-        emit EmergencyLock(msg.sender, block.timestamp);
+    ) external {
+        _unlock(toUnlock);
     }
 }
