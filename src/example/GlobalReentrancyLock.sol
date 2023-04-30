@@ -29,18 +29,6 @@ contract GlobalReentrancyLock is BaseGlobalReentrancyLock {
         /// echidna won't work with this check around chainid, so comment out for echidna testing
         /// contract adding access control is mandatory for the base contract to work in production
     }
-    /// ---------- View Only APIs ----------
-
-    /// @notice returns true if the contract is not currently entered
-    /// at level 1 and 2, returns false otherwise
-    function isUnlocked() external view returns (bool) {
-        return lockLevel == Constants._NOT_ENTERED;
-    }
-
-    /// @notice returns whether or not the contract is currently locked
-    function isLocked() external view returns (bool) {
-        return lockLevel != Constants._NOT_ENTERED;
-    }
 
     /// ---------- Global Locker Role State Changing APIs ----------
 
