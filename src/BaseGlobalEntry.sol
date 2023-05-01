@@ -19,7 +19,9 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 /// however this would only be one additional SLOAD as compared to
 /// the BaseGlobalReentrancyLock.
 contract BaseGlobalEntry is ReentrancyGuard {
-
+    /// @notice entry point for entire system
+    /// @param toCall address of contract to call
+    /// @param data to pass toCall
     function exec(address toCall, bytes calldata data) external nonReentrant {
         (bool success, ) = toCall.call{value: 0}(abi.encode(msg.sender, data));
         require(success, "BaseGlobalEntry: recipient reverted");
