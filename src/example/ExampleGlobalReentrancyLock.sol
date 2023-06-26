@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity 0.8.20;
 
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import {BaseGlobalReentrancyLock} from "./../BaseGlobalReentrancyLock.sol";
@@ -17,8 +17,8 @@ contract ExampleGlobalReentrancyLock is BaseGlobalReentrancyLock, AccessControlE
     /// @notice emitted when governor makes use of emergency unlock
     event EmergencyUnlock();
 
-    /// maximum lock level of global reentrancy lock is 1.
-    constructor () BaseGlobalReentrancyLock(1) {
+    /// @param _maxLockLevel maximum lock level of global reentrancy lock
+    constructor (uint8 _maxLockLevel) BaseGlobalReentrancyLock(_maxLockLevel) {
         _grantRole(governor, msg.sender); /// sender is governor
         _grantRole(locker, msg.sender); /// sender is locker
         _setRoleAdmin(locker, governor); /// governor is admin of locker

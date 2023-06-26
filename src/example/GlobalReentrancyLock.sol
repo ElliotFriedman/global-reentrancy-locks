@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity 0.8.20;
 
-import {BaseGlobalReentrancyLock} from "./../BaseGlobalReentrancyLock.sol";
-import {Constants} from "../Constants.sol";
+import {BaseGlobalReentrancyLock} from "@protocol/BaseGlobalReentrancyLock.sol";
+import {Constants} from "@protocol/Constants.sol";
 
 /// @notice inpsired by the openzeppelin reentrancy guard smart contracts
 /// data container size has been changed.

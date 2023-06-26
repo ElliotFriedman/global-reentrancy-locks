@@ -1,26 +1,33 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
-
-import {Test} from "@forge-std/Test.sol";
-import {ExampleGlobalReentrancyLock} from "../src/example/ExampleGlobalReentrancyLock.sol";
+pragma solidity 0.8.20;
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {Test} from "@forge-std/Test.sol";
+
+import {ExampleGlobalReentrancyLock} from "@protocol/example/ExampleGlobalReentrancyLock.sol";
 
 contract TestGlobalReentrancyLock is Test {
 
     ExampleGlobalReentrancyLock public lock;
+    address public secondLocker;
 
     function setUp() public {
-        lock = new ExampleGlobalReentrancyLock();
+        lock = new ExampleGlobalReentrancyLock(2);
+        lock.grantRole(lock.locker(), secondLocker);
     }
 
     function testSetup() public {
         assertTrue(!lock.isLocked());
         assertTrue(lock.isUnlocked());
         assertEq(lock.lockLevel(), 0);
-        assertEq(lock.maxLockLevel(), 1);
+        assertEq(lock.maxLockLevel(), 2);
         assertEq(lock.lastBlockEntered(), 0);
         assertEq(lock.lastSender(), address(0));
+
+        assertTrue(lock.hasRole(lock.locker(), secondLocker));
+        assertTrue(lock.hasRole(lock.locker(), address(this)));
+
+        assertEq(lock.getRoleMemberCount(lock.locker()), 2);
     }
 
     function testLock() public {
@@ -44,8 +51,46 @@ contract TestGlobalReentrancyLock is Test {
     function testLockOverMaxLockLevelFails() public {
         testLock();
 
-        vm.expectRevert("GlobalReentrancyLock: exceeds lock state");
+        vm.prank(secondLocker);
         lock.lock(2);
+
+        vm.prank(secondLocker);
+        vm.expectRevert("GlobalReentrancyLock: exceeds lock state");
+        lock.lock(3);
+    }
+
+    function testInvalidLockLevelFails() public {
+        testLock();
+
+        vm.prank(secondLocker);
+        vm.expectRevert("GlobalReentrancyLock: invalid lock level");
+        lock.lock(3);
+    }
+
+    function testLockingLevel2AfterLevel1NextBlockFails() public {
+        testLock();
+
+        vm.roll(block.number + 1);
+        vm.expectRevert("GlobalReentrancyLock: system not entered this block");
+        lock.lock(2);
+    }
+
+    function testReentrantLockFails() public {
+        testLock();
+
+        vm.expectRevert("GlobalReentrancyLock: reentrant");
+        lock.lock(2);
+    }
+
+    function testIncorrectUnlockFails() public {
+        testLock();
+
+        vm.prank(secondLocker);
+        lock.lock(2);
+
+        /// this test contract is the original locker so cannot unlock from level 2 to level 1
+        vm.expectRevert("GlobalReentrancyLock: invalid unlock");
+        lock.unlock(1);
     }
 
     function testUnlockSystemNotEntered() public {
@@ -99,13 +144,6 @@ contract TestGlobalReentrancyLock is Test {
         lock.governorEmergencyUnlock();
 
         vm.stopPrank();
-    }
-
-    function testGovernorEmergencyUnlockFailsEnteredSameBlock() public {
-        testLock();
-
-        vm.expectRevert("ExampleGlobalReentrancyLock: governor cannot unlock");
-        lock.governorEmergencyUnlock();
     }
 
     function testGovernorEmergencyUnlockSucceeds() public {

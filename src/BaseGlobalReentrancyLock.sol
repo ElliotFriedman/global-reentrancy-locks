@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity 0.8.20;
 
 import {Constants} from "./Constants.sol";
 
 /// @notice Global reentrancy lock. Assert statements are for SMT solving
 /// assertions only and can be removed for production builds.
+
+/// @dev Designed to prevent footguns. You cannot lock to level 2 from level 1
+/// with the same sender that locked from level 0 to level 1.
+/// This stops reentrancy attacks that could be theoretically possible
+/// if a developer misconfigures this contract.
+
+/// @dev if there are three levels to your system, something has probably
+/// gone horribly wrong in the design phase of your system. You should not
+/// have more than 2 levels of reentrancy lock in your system.
 
 contract BaseGlobalReentrancyLock {
     /// ------------- System Invariants ---------------
@@ -12,15 +21,14 @@ contract BaseGlobalReentrancyLock {
     /// locking: 
     ///   lockLevel1 = lockLevel0 + 1
     ///   if locklevel1 != not entered assert(block.number == lastBlockEntered)
+    ///   if locklevel1 != not entered assert(msg.sender != lastSender)
     ///   lockLevel1 <= maxLockLevel
-
+    
     /// unlocking: 
     ///   lockLevel1 = lockLevel0 - 1
     ///   block.number == lastBlockEntered
     ///   if lockLevel1 == not entered assert(msg.sender == original locker)
-
-    /// when unlocking from level 1 to level 0
-    /// msg.sender == original locker
+    ///   if locklevel1 != not entered assert(msg.sender != lastSender)
 
     /// -------------------------------------------------
     /// -------------------------------------------------
@@ -96,6 +104,12 @@ contract BaseGlobalReentrancyLock {
                 block.number == lastBlockEntered,
                 "GlobalReentrancyLock: system not entered this block"
             );
+
+            /// do not allow the initial locker contract to lock again as that could enable reentrancy
+            require(
+                msg.sender != lastSender,
+                "GlobalReentrancyLock: reentrant"
+            );
         }
 
         lockLevel = toLock;
@@ -143,6 +157,12 @@ contract BaseGlobalReentrancyLock {
                 "GlobalReentrancyLock: caller is not locker"
             );
             assert(msg.sender == lastSender); /// invariant for SMT solver, should always be true
+        } else {
+            /// if not fully unlocking, ensure sender is not original locker
+            require(
+                msg.sender != lastSender,
+                "GlobalReentrancyLock: invalid unlock"
+            );
         }
 
         lockLevel = toUnlock;
