@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity =0.8.13;
+pragma solidity 0.8.20;
 
 import {Test} from "@forge-std/Test.sol";
-import {GlobalReentrancyLock} from "../../../src/example/GlobalReentrancyLock.sol";
+
+import {EphemeralLocker} from "@test/helper/EphemeralLocker.sol";
+import {EphemeralUnlocker} from "@test/helper/EphemeralUnlocker.sol";
+import {GlobalReentrancyLock} from "@protocol/example/GlobalReentrancyLock.sol";
 
 /// note all variables have to be public and not immutable otherwise foundry
 /// will not run invariant tests
@@ -21,7 +24,7 @@ contract InvariantTestGlobalReentrancyLock is Test {
     }
 
     function invariant_Locked() public {
-        if (lock.lockLevel() > 0) {
+        if (lock.lockLevel() != 0) {
             assertTrue(lock.isLocked());
             assertTrue(!lock.isUnlocked());
         } else {
@@ -30,7 +33,7 @@ contract InvariantTestGlobalReentrancyLock is Test {
         }
     }
 
-    function invariant_LtMax() public {
+    function invariant_LteMax() public {
         assertTrue(lock.lockLevel() <= lock.maxLockLevel());
     }
 
@@ -61,13 +64,47 @@ contract GlobalReentrancyLockTest is Test {
 
     function lockGrl() public {
         uint8 currentLevel = lock.lockLevel();
-        lock.lock(currentLevel + 1);
+
+        if (currentLevel == 1) {
+            EphemeralLocker locker = new EphemeralLocker(lock);
+        } else {
+            lock.lock(currentLevel + 1);
+        }
+
         currentLockLevel++;
     }
 
     function unlockGrl() public {
         uint8 currentLevel = lock.lockLevel();
-        lock.lock(currentLevel - 1);
+
+        if (currentLevel != 1) {
+            EphemeralUnlocker unlocker = new EphemeralUnlocker(lock);
+        } else {
+            lock.lock(currentLevel - 1);
+        }
+
         currentLockLevel--;
+    }
+}
+
+contract GRLLockGt1 is Test {
+    GlobalReentrancyLock public lock;
+
+    constructor(GlobalReentrancyLock _lock) {
+        lock = _lock;
+        uint8 currentLevel = lock.lockLevel();
+        lock.lock(currentLevel + 1);
+        selfdestruct(payable(msg.sender));
+    }
+}
+
+contract GRLUnlockGt1 is Test {
+    GlobalReentrancyLock public lock;
+
+    constructor(GlobalReentrancyLock _lock) {
+        lock = _lock;
+        uint8 currentLevel = lock.lockLevel();
+        lock.unlock(currentLevel - 1);
+        selfdestruct(payable(msg.sender));
     }
 }
